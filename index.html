@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI輔助蛋白質結構突變與致病機制分析</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Deep Ocean Dark -->
+    <!-- Application Structure Plan: The application transforms the 18-week linear study plan into a four-phase interactive learning journey (Foundation, Core AI Analysis, Deepening & Automation, Synthesis & Presentation). This thematic structure is more intuitive than a simple timeline, allowing users to grasp the project's overall flow and dive into specific stages based on their interest. The main interactions involve selecting a phase to reveal its constituent weeks, and then expanding each week to see detailed tasks. This progressive disclosure approach keeps the interface clean and prevents overwhelming the user. A visual workflow diagram at the top provides an immediate overview of the entire research process. Content within each week now strictly adheres to the original Markdown. -->
+    <!-- Visualization & Content Choices: Report Info: The 18-week study plan is a process guide. Goal: To make this process tangible and interactive, with content fidelity to the source. Viz/Presentation Method: The core is a custom-designed, interactive timeline/process flow built with HTML/Tailwind, dividing the 18 weeks into 4 logical phases. Weekly details are presented in collapsible accordions, with content (text, lists, code, hyperlinks) directly reflecting the original Markdown. For Week 14's data visualization task, the static Matplotlib code example is converted into a live, interactive bar chart using Chart.js. Goal: To visually represent a key output. Interaction: Users can hover over the bars to see tooltips with specific RMSD values. Justification: This approach transforms the static text into an engaging learning path, now with full content accuracy. The interactive chart provides a concrete example of the analysis output. Library/Method: Chart.js for the bar chart; all other layouts and interactions use HTML/Tailwind CSS and vanilla JavaScript. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #0D1F2D; /* Dark Blue-Gray */
+            color: #E0E7FF; /* Light Lavender Blue */
+        }
+        .phase-button {
+            transition: all 0.3s ease;
+            background-color: #1E3A5F; /* Darker Blue-Gray */
+            border: 1px solid #3B6A8A; /* Muted Teal/Blue */
+            color: #E0E7FF;
+        }
+        .phase-button.active {
+            background-color: #00A79D; /* Teal */
+            color: #ffffff;
+            border-color: #00A79D;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
+        }
+        .week-item {
+            border-left: 3px solid #00A79D; /* Teal */
+            transition: all 0.3s ease;
+            background-color: #162B40; /* Slightly Lighter Dark Blue-Gray */
+        }
+        .week-title {
+            cursor: pointer;
+        }
+        .week-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-out, padding 0.5s ease-out;
+            color: #BCCCDC; /* Lighter gray for details */
+        }
+        .week-content.open {
+            max-height: 2000px; /* Adjusted for potentially longer content */
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+            background-color: #162B40; /* Match week item bg */
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        .workflow-step {
+            position: relative;
+            text-align: center;
+            flex: 1 1 0%;
+        }
+        .workflow-step:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            right: -25%;
+            width: 50%;
+            height: 2px;
+            background-color: #3B6A8A; /* Muted Teal/Blue */
+            transform: translateY(-50%);
+        }
+        @media (max-width: 767px) {
+            .workflow-step:not(:last-child)::after {
+                display: none;
+            }
+        }
+        .section-card {
+            background-color: #162B40; /* Slightly Lighter Dark Blue-Gray */
+            color: #E0E7FF;
+        }
+        .text-main-header { color: #FFFFFF; }
+        .text-sub-header { color: #A6C5E2; } /* Light Blue-Gray */
+        .text-content-muted { color: #8FA6B8; } /* Muted Blue-Gray */
+        .text-accent-teal { color: #00D1C1; } /* Bright Teal */
+        .text-accent-teal-link { color: #00D1C1; text-decoration: underline; } /* Bright Teal for links */
+        .text-accent-teal-link:hover { color: #31E8DA; }
+
+        .border-muted-teal { border-color: #3B6A8A; }
+        .bg-workflow-step { background-color: #1E3A5F; }
+        pre code {
+            color: #E0E7FF;
+            font-family: 'Courier New', Courier, monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        pre {
+             background-color: #0D1F2D !important; /* Darker than card for contrast */
+             border: 1px solid #1E3A5F;
+             padding: 0.75rem;
+             border-radius: 0.375rem;
+        }
+        h4 {
+            color: #A6C5E2; /* Light Blue-Gray for sub-sub-headings */
+            font-weight: bold;
+            margin-top: 0.75rem;
+            margin-bottom: 0.25rem;
+        }
+        .week-content ol, .week-content ul {
+            list-style-position: inside;
+            margin-left: 1rem;
+        }
+        .week-content ol li, .week-content ul li {
+            margin-bottom: 0.5rem;
+        }
+        .resource-link-tag {
+            background-color: #1E3A5F;
+            color: #A6C5E2;
+            border: 1px solid #3B6A8A;
+        }
+        .resource-link-tag a {
+            color: #00D1C1;
+        }
+        .resource-link-tag a:hover {
+            color: #31E8DA;
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="container mx-auto px-4 py-8 md:py-12">
+
+        <header class="text-center mb-12">
+            <h1 class="text-3xl md:text-4xl font-bold text-main-header mb-2">AI輔助蛋白質分析學習路徑</h1>
+            <p class="text-lg text-sub-header">一個將18週研究計畫轉化為互動式探索旅程的應用</p>
+        </header>
+
+        <section class="mb-12 p-6 section-card rounded-xl shadow-md">
+            <h2 class="text-2xl font-bold text-center mb-4 text-main-header">語音摘要</h2>
+            <div class="w-[65%] mx-auto mb-6">
+                <audio controls class="w-full rounded-lg">
+                    <source src="placeholder_audio.mp3" type="audio/mpeg">
+                    您的瀏覽器不支援音訊播放。
+                </audio>
+            </div>
+            <p class="text-center text-content-muted">您可以點擊播放器聆聽本研究計畫的語音摘要，快速了解整體內容。</p>
+        </section>
+        
+        <section class="mb-12 p-6 section-card rounded-xl shadow-md">
+            <h2 class="text-2xl font-bold text-center mb-6 text-main-header">研究流程總覽</h2>
+            <div class="flex flex-col md:flex-row justify-center items-center gap-y-4">
+                <div class="workflow-step">
+                    <div class="p-4 bg-workflow-step rounded-lg shadow-inner">
+                        <span class="text-2xl">🧬</span>
+                        <p class="font-semibold mt-1 text-slate-200">基礎與數據</p>
+                    </div>
+                </div>
+                <div class="workflow-step">
+                    <div class="p-4 bg-workflow-step rounded-lg shadow-inner">
+                        <span class="text-2xl">🤖</span>
+                        <p class="font-semibold mt-1 text-slate-200">AI核心分析</p>
+                    </div>
+                </div>
+                <div class="workflow-step">
+                    <div class="p-4 bg-workflow-step rounded-lg shadow-inner">
+                        <span class="text-2xl">🔬</span>
+                        <p class="font-semibold mt-1 text-slate-200">深化與自動化</p>
+                    </div>
+                </div>
+                <div class="workflow-step">
+                    <div class="p-4 bg-workflow-step rounded-lg shadow-inner">
+                        <span class="text-2xl">📊</span>
+                        <p class="font-semibold mt-1 text-slate-200">整合與發表</p>
+                    </div>
+                </div>
+            </div>
+            <p class="mt-6 text-center text-content-muted">本應用程式將原始的18週研究計畫，重新劃分為四個核心階段。這個設計旨在提供一個清晰的學習地圖，讓使用者能宏觀地理解整個研究流程，同時也能深入探索每個階段的具體任務。您可以點擊下方的階段按鈕，來切換並查看各階段的詳細學習內容。</p>
+        </section>
+
+
+        <nav id="phase-nav" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <button data-phase="phase1" class="phase-button active font-bold py-3 px-4 rounded-lg shadow-sm">階段一：基礎建構</button>
+            <button data-phase="phase2" class="phase-button font-bold py-3 px-4 rounded-lg shadow-sm">階段二：AI核心分析</button>
+            <button data-phase="phase3" class="phase-button font-bold py-3 px-4 rounded-lg shadow-sm">階段三：深化與自動化</button>
+            <button data-phase="phase4" class="phase-button font-bold py-3 px-4 rounded-lg shadow-sm">階段四：整合與發表</button>
+        </nav>
+
+        <main id="content-container">
+            <div id="phase1" class="phase-content space-y-4"></div>
+            <div id="phase2" class="phase-content hidden space-y-4"></div>
+            <div id="phase3" class="phase-content hidden space-y-4"></div>
+            <div id="phase4" class="phase-content hidden space-y-4"></div>
+        </main>
+        
+        <footer class="mt-12 pt-8 border-t border-muted-teal">
+             <div class="section-card rounded-xl shadow-md p-6 mb-6">
+                <h2 class="text-2xl font-bold mb-4 text-center text-main-header">資源與工具</h2>
+                 <p class="text-center text-content-muted mb-6">此處彙整了整個研究計畫中提到的所有重要外部資源、線上課程與實用工具。這些連結是您深入學習各個主題的起點，建議將其收藏，以便在需要時快速查閱。</p>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div id="supplementary-materials" class="space-y-3"></div>
+                    <div id="tool-list" class="space-y-3"></div>
+                </div>
+            </div>
+        </footer>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const weeksData = {
+                phase1: [
+                    { week: 1, title: '主題導論與背景建構', goal: '認識阿茲海默症與蛋白質突變在疾病中的角色', details: `<h4>具體操作流程：</h4><ol class="list-decimal"><li><strong>阿茲海默症病理初步搜尋</strong>：<ul><li>Google「阿茲海默症 病理」閱讀前3個醫療機構或學協會的介紹。</li><li>筆記阿茲海默症的致病蛋白和已知基因變異。</li></ul></li><li><strong>選定重點蛋白質</strong>：<ul><li>記下APP、PSEN1、MAPT三個蛋白質的全名、功能與常見相關疾病。</li></ul></li><li><strong>繪製思維導圖</strong>：<ul><li>使用XMind或手繪，繪出阿茲海默症-蛋白-突變三者關聯圖。</li></ul></li><li><strong>週小測驗</strong>：<ul><li>嘗試向ChatGPT或老師解釋：「為什麼蛋白質突變對阿茲海默症研究很重要？」</li></ul></li></ol><h4>進階範例：</h4><p>用Markdown整理重點筆記，或嘗試在Notion上製作「知識庫」。</p>` },
+                    { week: 2, title: '查找阿茲海默症致病蛋白及常見突變', goal: '利用資料庫查詢，鎖定研究對象', details: `<h4>具體操作流程：</h4><ol class="list-decimal"><li><strong>UniProt查詢</strong>：<ul><li>前往 <a href="https://www.uniprot.org/" target="_blank" rel="noopener noreferrer" class="text-accent-teal-link">UniProt</a>，搜尋「APP human」，點進P05067條目。</li><li>點擊「Variants」標籤，複製其中3-5個已知致病突變（如V717I、A673T）。</li></ul></li><li><strong>Alzforum查詢</strong>：<ul><li>進入 <a href="https://www.alzforum.org/mutations/app" target="_blank" rel="noopener noreferrer" class="text-accent-teal-link">Alzforum APP mutation database</a></li><li>記錄每個突變的「蛋白質位置」、「氨基酸變化」與「已知臨床意義」。</li></ul></li><li><strong>建立突變表格</strong>：<ul><li>Excel建檔：蛋白名稱、突變名稱、位置、類型、臨床關聯。</li></ul></li><li><strong>備份FASTA序列</strong>：<ul><li>在UniProt頁面下載APP蛋白的FASTA檔案。</li></ul></li></ol><h4>進階範例：</h4><p>使用Python pandas整理突變資訊成DataFrame格式。</p><pre><code>import pandas as pd\nmutations = [{"protein":"APP", "mutation":"V717I", "pos":717, "from":"V", "to":"I"}]\ndf = pd.DataFrame(mutations)\nprint(df)</code></pre>` },
+                    { week: 3, title: '學習蛋白質序列與結構基本知識', goal: '熟悉蛋白質序列格式與結構檔案', details: `<h4>具體操作流程：</h4><ol class="list-decimal"><li><strong>FASTA格式解析</strong>：<ul><li>用記事本或Notepad++開啟FASTA檔案，認識&gt;開頭的描述行與胺基酸序列。</li></ul></li><li><strong>定位突變點</strong>：<ul><li>利用Python腳本或Excel計算出FASTA序列的對應位置（注意頭部描述行不算在內）。</li></ul></li><li><strong>人工or程式改序列</strong>：<ul><li>用文字編輯器手動將第n個氨基酸替換為突變後的氨基酸。</li><li>或用下列Python函數：</li></ul><pre><code>def mutate_fasta(seq, pos, new_aa):\n   return seq[:pos-1] + new_aa + seq[pos:]</code></pre></li><li><strong>PDB格式初步認識</strong>：<ul><li>下載一個PDB結構檔（如1AAP.pdb），用記事本打開，觀察ATOM/HETATM等欄位。</li></ul></li></ol><h4>進階範例：</h4><p>比較不同蛋白質（APP, PSEN1, MAPT）序列，發現保守區域。</p>` },
+                ],
+                phase2: [
+                    { week: 4, title: 'AI蛋白質結構預測工具學習與環境設置', goal: '建立AI預測工具的基礎操作能力', details: `<h4>具體操作流程：</h4><ol class="list-decimal"><li><strong>註冊Google帳號並登入Colab</strong>：<ul><li>訪問 <a href="https://colab.research.google.com/github/sokrypton/ColabFold/blob/main/AlphaFold2.ipynb" target="_blank" rel="noopener noreferrer" class="text-accent-teal-link">ColabFold Notebook</a>。</li></ul></li><li><strong>學習ColabFold步驟</strong>：<ul><li>依照Notebook指示安裝必要的依賴。</li><li>上傳自己的FASTA檔，執行預測。</li><li>記錄每步出現的變數、設定（如模板使用、迭代次數）。</li></ul></li><li><strong>下載PDB結果</strong>：<ul><li>在Colab下方選單選擇「檔案」→ 下載生成的PDB檔。</li></ul></li><li><strong>查看錯誤處理</strong>：<ul><li>預測失敗時，學習從輸出訊息定位錯誤原因（如序列過長、格式錯誤等）。</li></ul></li></ol><h4>進階範例：</h4><p>用自己編輯的突變型FASTA做一遍預測練習，比較輸出文件結構。</p>` },
+                    { week: 5, title: '野生型蛋白質結構預測與可視化', goal: '熟練結構預測及基礎三維可視化', details: `<h4>具體操作流程：</h4><ol class="list-decimal"><li>將FASTA序列貼到ColabFold運算，取得PDB結構檔。</li><li>下載ChimeraX並安裝，開啟PDB結構。</li><li>旋轉、縮放結構，學習基本的ChimeraX操作（點選、選區、顯示/隱藏側鏈）。</li><li><strong>標註特定區域</strong>：<ul><li>用命令列輸入 <code>select :A673</code> 選取第673號氨基酸。</li><li>設置不同顏色 <code>color red sel</code></li></ul></li><li><strong>截圖存檔</strong>：<ul><li>使用ChimeraX「File → Save Image」功能，將截圖存為png。</li></ul></li></ol><h4>進階範例：</h4><p>使用ChimeraX的「surface」指令將結構繪製成分子表面模式。</p><p>學習ChimeraX腳本（.cxc檔），一次性自動載入+上色+標註。</p>` },
+                    { week: 6, title: '突變型蛋白質序列建構與結構預測', goal: '自行產生突變型結構，並用AI預測', details: `<h4>具體操作流程：</h4><ol class="list-decimal"><li>用第3週Python函數批次製作不同突變型FASTA序列。</li><li>上傳每個突變型FASTA到ColabFold進行預測（可同時跑2-3個，節省時間）。</li><li>下載所有PDB結構檔，按突變名稱存檔（如APP_V717I.pdb）。</li><li>記錄預測花費的時間與資源。</li></ol><h4>進階範例：</h4><p>比較預測不同突變型時，AI模型對結構信心值（plDDT分數）的變化。</p>` },
+                    { week: 7, title: '野生型與突變型蛋白質結構對比', goal: '觀察結構變異，掌握結構對比技能', details: `<h4>具體操作流程：</h4><ol class="list-decimal"><li>同時在ChimeraX載入野生型和突變型PDB檔案。</li><li><strong>執行結構疊合</strong>：<ul><li>命令列輸入 <code>matchmaker #1 #2</code>（#1、#2分別為不同PDB的ID）。</li></ul></li><li><strong>比對RMSD值</strong>：<ul><li>用 <code>rmsd #1 #2</code> 計算結構差異。</li></ul></li><li>放大突變位點區域，觀察局部結構改變。</li><li>將疊合前後結構用不同顏色表示，便於截圖比較。</li></ol><h4>進階範例：</h4><p>用ChimeraX script自動比對多組突變（.cxc範例可提供）。</p>` },
+                    { week: 8, title: '蛋白質結構功能域與致病相關區域分析', goal: '理解突變點與蛋白質功能的關聯', details: `<h4>具體操作流程：</h4><ol class="list-decimal"><li><strong>UniProt查詢功能區域</strong>：<ul><li>對應功能域（如β-sheet、活性中心、跨膜區）與結構上的氨基酸編號。</li></ul></li><li><strong>ChimeraX標記功能域</strong>：<ul><li>用 <code>select</code> + <code>color</code> 指令標註功能域與突變點。</li></ul></li><li>Google Scholar查找該區域與疾病的關聯。</li><li>總結突變點是否落在重要功能區，並附圖說明。</li></ol><h4>進階範例：</h4><p>嘗試利用 <a href="https://www.ebi.ac.uk/interpro/" target="_blank" rel="noopener noreferrer" class="text-accent-teal-link">InterPro</a> 或 Pfam 對蛋白進行結構域自動註釋。</p>` },
+                ],
+                phase3: [
+                    { week: 9, title: '深入文獻查證突變與致病性的關聯', goal: '蒐集與整理每個突變的研究現況', details: `<h4>具體操作流程：</h4><ol class="list-decimal"><li>在Google Scholar用突變名稱關鍵字檢索（如「APP V717I」）。</li><li>下載2-3篇重點文獻並製作重點摘要表。</li><li>填寫「突變-功能-致病關聯」Excel表格。</li><li>若發現爭議/新發現，記錄於「進階討論」區塊。</li></ol><h4>進階範例：</h4><p>用Zotero或Mendeley管理文獻，生成自動引用格式。</p>` },
+                    { week: 10, title: '多突變型結構批次建構（自動化進階）', goal: '用程式批量處理多個突變，提高效率', details: `<h4>具體操作流程：</h4><ol class="list-decimal"><li><strong>建立突變批次清單（如CSV檔案）</strong>，內容如：<code>蛋白,突變點,原胺基酸,突變胺基酸</code></li><li>用Python自動產生多個突變FASTA並保存。<pre><code>import pandas as pd\nmuts = pd.read_csv('mut_list.csv')\nfor idx, row in muts.iterrows():\n   seq = mutate_fasta(base_seq, row['突變點'], row['突變胺基酸'])\n   with open(f"{row['蛋白']}_{row['突變點']}{row['突變胺基酸']}.fasta","w") as f:\n       f.write(seq)</code></pre></li><li>批次上傳ColabFold運算，統一命名與下載。</li><li>整理所有結構檔進同一資料夾，方便後續分析。</li></ol><h4>進階範例：</h4><p>批量產生結構後，自動寫入一份「樣本管理表」記錄預測時間、信心分數、檔名等資訊。</p>` },
+                    { week: 11, title: '結構可視化自動化與統整', goal: '批次可視化，提升統整效率', details: `<h4>具體操作流程：</h4><ol class="list-decimal"><li>撰寫ChimeraX腳本，自動載入多個PDB，標註突變點並截圖。<ul><li>範例腳本：<pre><code>open 1 wildtype.pdb\ncolor blue\nopen 2 mutant.pdb\ncolor red\nselect :717\ncolor yellow sel\nsave wildtype_vs_mutant.png</code></pre></li></ul></li><li>統一檔名與圖檔管理。</li><li>做成「突變對照圖集」PPT或PDF，標示異同。</li></ol><h4>進階範例：</h4><p>用Python PIL或ImageMagick自動拼圖，將比對圖整理成大圖。</p>` },
+                    { week: 12, title: '結構差異對功能可能影響的推論', goal: '從結構推論生物功能與致病性', details: `<h4>具體操作流程：</h4><ol class="list-decimal"><li>比對功能區域與突變區的重疊度。</li><li>以表格/圖示整理各突變對結構的影響（RMSD、氫鍵變化、構型變動等）。</li><li>用簡單生物學語言推測功能變化（如結構穩定度下降/上升、可能失去某種結合能力）。</li><li>撰寫小結：本週發現/尚未解答的問題/未來驗證方向。</li></ol><h4>進階範例：</h4><p>用PyMOL量化突變點鄰近氫鍵數目的變化（可額外學習）。</p>` },
+                    { week: 13, title: '討論進階分析方法（如分子對接）', goal: '引入分子對接，探索突變對結合能力的影響', details: `<h4>具體操作流程：</h4><ol class="list-decimal"><li>下載AutoDockTools-1.5.7，學習安裝與基本操作。</li><li>下載一個已知阿茲海默症配體（如Aβ抑制劑）結構檔（可在PubChem找到）。</li><li><strong>分別用野生型與突變型結構做對接分析</strong>。<ul><li>操作步驟：設定Grid box → 準備PDBQT → 執行對接 → 分析結果。</li></ul></li><li>比較結合能（binding affinity）分數，判斷突變是否影響結合。</li></ol><h4>進階範例：</h4><p>嘗試用其他開源對接軟體（如SwissDock），對比結果。</p>` },
+                    { week: 14, title: '數據彙整與圖表製作', goal: '將所有數據成果視覺化，製作圖表', details: `<h4>具體操作流程：</h4><ol class="list-decimal"><li>用Excel製作「突變-RMSD-結合能」三欄圖。</li><li>用Google Sheets、Python matplotlib/seaborn製作結構差異折線圖、熱圖。</li><li>彙整截圖、可視化圖表，製成整理型PPT。</li></ol><h4>進階範例：</h4><p>用Python自動生成多突變分析報表。</p><pre><code>import matplotlib.pyplot as plt\nplt.bar(['WT','V717I','A673T'], [0.5,0.9,1.3])\nplt.xlabel('突變型')\nplt.ylabel('RMSD')\nplt.title('不同突變型結構差異')\nplt.savefig('diff_rmsd.png')</code></pre><p class="mt-4">這是將報告中Matplotlib程式碼轉換為互動式圖表的範例。將滑鼠懸停在長條上可以查看具體的RMSD值。</p><div class="chart-container mt-4"><canvas id="rmsdChart"></canvas></div>` },
+                ],
+                 phase4: [
+                    { week: 15, title: '撰寫成果初稿（研究背景、方法、初步結果）', goal: '將研究過程與初步結果文字化', details: `<h4>具體操作流程：</h4><ol class="list-decimal"><li><strong>依下列大綱撰寫Word或Markdown文件：</strong><ul><li>研究動機</li><li>研究背景</li><li>研究目標</li><li>研究方法（圖示流程、使用工具、分析方法）</li><li>初步實驗/預測結果</li></ul></li><li>插入流程圖與代表性截圖。</li><li>段落內容可參考學術論文的寫作方式。</li></ol><h4>進階範例：</h4><p>用draw.io或Canva設計精美流程圖。</p>` },
+                    { week: 16, title: '撰寫討論與結論', goal: '深度分析與展望', details: `<h4>具體操作流程：</h4><ol class="list-decimal"><li><strong>結構與致病性的綜合討論</strong>：<ul><li>挑選1~2個突變案例做重點討論，結合文獻觀點。</li></ul></li><li>探討實驗與AI預測的差異/優缺點。</li><li>撰寫結論與未來研究建議。</li><li>檢查所有引用與圖表，確保標註完整。</li></ol><h4>進階範例：</h4><p>以表格形式對比「AI預測 vs 傳統濕實驗」在蛋白質突變研究中的利弊。</p>` },
+                    { week: 17, title: '簡報製作與口頭報告練習', goal: '成果視覺化，增強表達力', details: `<h4>具體操作流程：</h4><ol class="list-decimal"><li>PowerPoint設計：以流程為主軸，配合圖表與結構圖。</li><li>擬定3-5分鐘口頭報告稿（中文/英文皆可）。</li><li>邀請同學/家人聆聽，進行模擬答辯與回饋。</li><li>可錄影或錄音自我檢討。</li></ol><h4>進階範例：</h4><p>嘗試製作動畫式簡報（PowerPoint動畫、Canva、Prezi）。</p>` },
+                    { week: 18, title: '專題成果檢查與最終整合', goal: '完善所有學習成果，準備公開分享', details: `<h4>具體操作流程：</h4><ol class="list-decimal"><li>自檢論文/簡報/數據表/程式碼完整性。</li><li><strong>將所有材料整理進「專案資料夾」</strong>（可依：文獻、結構、程式、圖表分類）。</li><li><strong>學習GitHub Pages部署（有空可將所有材料製成靜態網頁）</strong>。</li><li><strong>製作「學習心得」1頁A4、200字總結本計畫收穫與反思</strong>。</li></ol><h4>進階範例：</h4><p>使用 <a href="https://www.notion.so/" target="_blank" rel="noopener noreferrer" class="text-accent-teal-link">Notion</a> 或 <a href="https://obsidian.md/" target="_blank" rel="noopener noreferrer" class="text-accent-teal-link">Obsidian</a> 製作專題Wiki，持續補充未來學習紀錄。</p>` },
+                ]
+            };
+
+            const supplementaryMaterialsData = {
+                title: '課外補充材料（推薦資源大集合）',
+                categories: [
+                    {
+                        name: '蛋白質結構基礎/線上課程',
+                        links: [
+                            { text: 'Protein Structure and Function (edX, 英文)', url: 'https://www.edx.org/learn/biology/harvard-university-protein-structure-and-function' },
+                            { text: 'Coursera-蛋白質生物資訊學（中文）', url: 'https://www.coursera.org/learn/protein-bioinformatics' },
+                            { text: '台灣大學開放式課程-生物化學', url: 'https://ocw.ntu.edu.tw/ntu-ocw/ocw/cou/102S208' }
+                        ]
+                    },
+                    {
+                        name: '生物資訊&AI工具學習',
+                        links: [
+                            { text: 'ColabFold中文社群教程', url: 'https://zhuanlan.zhihu.com/p/570578836' },
+                            { text: 'AlphaFold2基礎教學影片', url: 'https://www.youtube.com/watch?v=cdtz2dB4N6I' }, // Placeholder, as original was likely a search result
+                            { text: 'PyMOL/ChimeraX社群與範例程式', url: 'https://pymolwiki.org/index.php/Main_Page' }
+                        ]
+                    },
+                    {
+                        name: '分子對接、結構分析社群',
+                        links: [
+                            { text: 'Molecular Docking基礎影片', url: 'https://www.youtube.com/watch?v=Udq5vsHcMcc' }, // Placeholder
+                            { text: 'AutoDockTools官方文件', url: 'http://autodock.scripps.edu/' }
+                        ]
+                    },
+                    {
+                        name: '蛋白質突變資料庫、阿茲海默症學會',
+                        links: [
+                            { text: 'Alzforum Mutation Database', url: 'https://www.alzforum.org/mutations' },
+                            { text: 'UniProt蛋白質變異專區', url: 'https://www.uniprot.org/docs/humsavar' },
+                            { text: 'Alzheimer’s Association（國際學會）', url: 'https://www.alz.org/' }
+                        ]
+                    },
+                    {
+                        name: '程式碼/AI社群討論區',
+                        links: [
+                            { text: 'Kaggle生物資訊競賽', url: 'https://www.kaggle.com/search?q=protein' },
+                            { text: 'Stack Overflow Python專區', url: 'https://stackoverflow.com/questions/tagged/python' }
+                        ]
+                    },
+                    {
+                        name: 'GitHub Pages教學',
+                        links: [
+                            { text: 'GitHub Pages新手指南（中文）', url: 'https://ithelp.ithome.com.tw/articles/10265716' },
+                            { text: '用Notion自架科學網頁', url: 'https://www.notion.so/zh-tw/help/guides/add-a-custom-domain' }
+                        ]
+                    }
+                ]
+            };
+
+            const toolListData = {
+                title: '附錄：常用工具資源總表',
+                tools: [
+                    '<strong>AI蛋白質結構預測</strong>：AlphaFold（ColabFold）、AlphaFold Database',
+                    '<strong>蛋白質序列資料庫</strong>：UniProt、NCBI Protein',
+                    '<strong>蛋白質結構檢視</strong>：UCSF ChimeraX（下載）、PyMOL（如需）',
+                    '<strong>突變資料查詢</strong>：Alzforum Mutation Database、OMIM、ClinVar',
+                    '<strong>分子對接</strong>：AutoDockTools-1.5.7',
+                    '<strong>圖表繪製</strong>：Excel、Google Sheets、Matplotlib（Python）',
+                    '<strong>程式學習</strong>：Google Colab、Python基礎入門（菜鳥教程）'
+                ]
+            };
+
+            const phaseContainer = document.getElementById('content-container');
+            
+            function createWeekItem(weekData) {
+                const weekDiv = document.createElement('div');
+                weekDiv.className = 'week-item rounded-lg shadow-sm p-4';
+                // Ensure list items are styled correctly by wrapping details in a div if not already structured with lists
+                let detailsHTML = weekData.details;
+                if (!detailsHTML.trim().startsWith('<ol') && !detailsHTML.trim().startsWith('<ul')) {
+                     detailsHTML = `<div>${detailsHTML}</div>`; // Basic wrapper if no list
+                }
+
+                weekDiv.innerHTML = `
+                    <div class="week-title flex justify-between items-center">
+                        <div>
+                            <h3 class="text-lg font-bold text-accent-teal">第 ${weekData.week} 週: ${weekData.title}</h3>
+                            <p class="text-sm text-content-muted">${weekData.goal}</p>
+                        </div>
+                        <span class="text-2xl text-teal-500 transform transition-transform duration-300">&#x25BC;</span>
+                    </div>
+                    <div class="week-content pl-4 border-l-2 border-slate-700 ml-2">
+                        ${detailsHTML}
+                    </div>
+                `;
+                return weekDiv;
+            }
+
+            Object.keys(weeksData).forEach(phaseId => {
+                const phaseDiv = document.getElementById(phaseId);
+                weeksData[phaseId].forEach(week => {
+                    phaseDiv.appendChild(createWeekItem(week));
+                });
+            });
+            
+            phaseContainer.addEventListener('click', function(e) {
+                const title = e.target.closest('.week-title');
+                if (title) {
+                    const content = title.nextElementSibling;
+                    const arrow = title.querySelector('span');
+                    const isOpen = content.classList.contains('open');
+                    
+                    document.querySelectorAll('.week-content.open').forEach(openContent => {
+                        if (openContent !== content) {
+                           openContent.classList.remove('open');
+                           openContent.previousElementSibling.querySelector('span').style.transform = 'rotate(0deg)';
+                        }
+                    });
+
+                    content.classList.toggle('open', !isOpen);
+                    arrow.style.transform = !isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+                }
+            });
+
+            const nav = document.getElementById('phase-nav');
+            nav.addEventListener('click', function(e) {
+                if (e.target.tagName === 'BUTTON') {
+                    const phase = e.target.dataset.phase;
+
+                    document.querySelectorAll('.phase-button').forEach(btn => btn.classList.remove('active'));
+                    e.target.classList.add('active');
+
+                    document.querySelectorAll('.phase-content').forEach(content => content.classList.add('hidden'));
+                    document.getElementById(phase).classList.remove('hidden');
+                    
+                    if (phase === 'phase3') { // Corresponds to the phase containing Week 14
+                        const chartCanvas = document.getElementById('rmsdChart');
+                        // Check if canvas exists and if chart is not already rendered
+                        if (chartCanvas && (!chartCanvas.chart || chartCanvas.chart.ctx === null)) {
+                             renderChart();
+                        }
+                    }
+                }
+            });
+            
+            function renderChart() {
+                const ctx = document.getElementById('rmsdChart').getContext('2d');
+                if (ctx.canvas.chart) { // If a chart instance exists, destroy it before rendering a new one
+                    ctx.canvas.chart.destroy();
+                }
+                const textColor = '#E0E7FF';
+                const gridColor = 'rgba(224, 231, 255, 0.2)';
+
+                ctx.canvas.chart = new Chart(ctx, { // Store the new chart instance
+                    type: 'bar',
+                    data: {
+                        labels: ['WT', 'V717I', 'A673T'],
+                        datasets: [{
+                            label: 'RMSD',
+                            data: [0.5, 0.9, 1.3],
+                            backgroundColor: [
+                                'rgba(0, 167, 157, 0.7)',  /* Teal */
+                                'rgba(59, 106, 138, 0.7)', /* Muted Blue */
+                                'rgba(143, 166, 184, 0.7)'/* Muted Blue-Gray */
+                            ],
+                            borderColor: [
+                                'rgba(0, 209, 193, 1)',
+                                'rgba(91, 155, 200, 1)',
+                                'rgba(176, 196, 222, 1)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: { display: true, text: 'RMSD', color: textColor },
+                                ticks: { color: textColor },
+                                grid: { color: gridColor, borderColor: gridColor }
+                            },
+                            x: {
+                                title: { display: true, text: '突變型', color: textColor },
+                                ticks: { color: textColor },
+                                grid: { color: gridColor, borderColor: gridColor }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            title: {
+                                display: true,
+                                text: '不同突變型結構差異 (RMSD)',
+                                font: { size: 16 },
+                                color: textColor
+                            },
+                             tooltip: {
+                                titleFont: { weight: 'bold' },
+                                titleColor: textColor,
+                                bodyColor: textColor,
+                                backgroundColor: '#0D1F2D',
+                                borderColor: '#3B6A8A',
+                                borderWidth: 1,
+                                padding: 10,
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        if (label) { label += ': '; }
+                                        if (context.parsed.y !== null) { label += context.parsed.y; }
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            function populateSupplementaryMaterials() {
+                const container = document.getElementById('supplementary-materials');
+                container.innerHTML = `<h3 class="font-bold text-xl mb-4 text-main-header">${supplementaryMaterialsData.title}</h3>`;
+                supplementaryMaterialsData.categories.forEach(category => {
+                    const categoryDiv = document.createElement('div');
+                    categoryDiv.className = 'mb-3';
+                    let linksHTML = category.links.map(link =>
+                        `<li><a href="${link.url}" target="_blank" rel="noopener noreferrer" class="text-accent-teal-link">${link.text}</a></li>`
+                    ).join('');
+                    categoryDiv.innerHTML = `
+                        <h4 class="font-semibold text-sub-header">${category.name}</h4>
+                        <ul class="list-disc list-inside ml-4 space-y-1 text-content-muted">
+                            ${linksHTML}
+                        </ul>
+                    `;
+                    container.appendChild(categoryDiv);
+                });
+            }
+
+            function populateToolList() {
+                const container = document.getElementById('tool-list');
+                container.innerHTML = `<h3 class="font-bold text-xl mb-4 text-main-header">${toolListData.title}</h3>`;
+                const list = document.createElement('ul');
+                list.className = 'list-none space-y-2 text-content-muted';
+                toolListData.tools.forEach(tool => {
+                    const listItem = document.createElement('li');
+                    listItem.innerHTML = tool; // Content already includes <strong>
+                    list.appendChild(listItem);
+                });
+                container.appendChild(list);
+            }
+
+            populateSupplementaryMaterials();
+            populateToolList();
+
+        });
+    </script>
+</body>
+</html>
